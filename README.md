@@ -4,7 +4,7 @@ version: 0.81
 
 Description
 -----------
-greps extends your installed grep with new options that can make the search faster and return more relevant results (or less non-relevant results).
+greps extends your installed GNU grep with new options that can make the search faster and return more relevant results (or less non-relevant results).
 Basically what it does is allowing you to choose also the patterns or extentions of the desired files. Then it executes find for finding such files and executes grep on these files (find ... | xargs grep ...).
 
 Install
@@ -14,6 +14,8 @@ chmod a+r,a+x greps
 cp greps /usr/local/bin
 
 cp greps.1.gz /usr/share/man/man1/ # for manpage
+
+Note: was tested only on Ubuntu and Red Hat.
 
 Usage
 -----
