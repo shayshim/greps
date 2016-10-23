@@ -27,9 +27,9 @@ greps what -ri where1/ where2/ -nwX h --color
 
 Recursively search what in directories where1/ where2/ with options -r -i -n -w --color enabled (owned by grep) in h files. Note that options in there short form can be grouped and mixed with options of grep.
 
-greps -r "what1 what2" --name='a*','b*' where/
+greps -r "what what" --name='a\*','b\*' where/
 
-Recursively search for phrase "what1 what2" in where/ in files that their name starts with a or b.
+Recursively search for phrase "what what" in where/ in files that their name starts with a or b.
 
 greps -r what -X java --abs-path where/
 
