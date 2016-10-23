@@ -12,8 +12,10 @@ To see all the available options that greps adds to your installed grep - call g
 Install
 -------
 chmod a+r,a+x greps
-sudo cp greps /usr/local/bin
-sudo cp greps.1.gz /usr/share/man/man1/ # for manpage
+
+cp greps /usr/local/bin
+
+cp greps.1.gz /usr/share/man/man1/ # for manpage
 
 Changes included in version 0.8
 -------------------------------
