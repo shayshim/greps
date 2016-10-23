@@ -4,7 +4,7 @@ version: 0.81
 
 Description
 -----------
-greps is a script written in perl which wraps the regular installed grep with new options that can make the search faster and return more relevant results (actully less non-relevant results). .
+greps is a script written in perl which wraps the regular installed grep with new options that can make the search faster and return more relevant results (actully less non-relevant results).
 Basically what it does is allowing you to choose also the patterns or extentions of the desired files. Then it executes find for finding such files and executes grep on those files.
 The usage of greps is same as you would use grep (see exceptions in the man).
 To see all the available options that greps adds to your installed grep - call greps --help or man greps.
