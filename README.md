@@ -5,7 +5,7 @@ version: 0.81
 Description
 -----------
 greps extends your installed grep (on Linux) with new options that can make the search faster and return more relevant results (or less non-relevant results).
-Basically what it does is allowing you to choose also the patterns or extentions of the desired files. Then it executes find for finding such files and executes grep on these files (find ... | xargs grep ...).
+Basically what it does is allowing you to choose also patterns or extentions of desired files. Then it executes find for finding such files and executes grep on these files (find ... | xargs grep ...).
 
 Install
 -------
