@@ -44,7 +44,7 @@ Recursively search what in where/ in Perl files that their name starts with c. N
 
 greps -r what \( --c --or --perl \) --and -N 'd*' where/
 
-Recursively search for what in where/ in C and Perl files that their name starts with d.
+Recursively search for what in where/ in C and Perl files that their name starts with d. Note that the --or option could be actualy removed and thus implicitely used.
 
 greps -r --perl what --or --shell where/ --and -N '*e'
 
