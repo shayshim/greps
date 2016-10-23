@@ -4,10 +4,8 @@ version: 0.81
 
 Description
 -----------
-greps is a script written in perl which extends the regular installed grep with new options that can make the search faster and return more relevant results (or less non-relevant results).
-Basically what it does is allowing you to choose also the patterns or extentions of the desired files. Then it executes find for finding such files and executes grep on those files.
-The usage of greps is same as you would use grep (see exceptions in the man).
-To see all the available options that greps adds to your installed grep - call greps --help or man greps.
+greps extends your installed grep with new options that can make the search faster and return more relevant results (or less non-relevant results).
+Basically what it does is allowing you to choose also the patterns or extentions of the desired files. Then it executes find for finding such files and executes grep on these files (find ... | xargs grep ...).
 
 Install
 -------
@@ -17,8 +15,13 @@ cp greps /usr/local/bin
 
 cp greps.1.gz /usr/share/man/man1/ # for manpage
 
-Usage Examples
---------------
+Usage
+-----
+The usage of greps is same as you would use grep (see exceptions in the man).
+To see all the available options that greps adds to your installed grep - call greps --help or man greps.
+
+Examples
+--------
 greps what -i where/
 
 Search for the word what with option -i enabled (owned by grep) in directory where/. This will behave exactly the same as grep what -i where/. Note the search is non-recursive by default, as in grep.
