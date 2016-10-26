@@ -19,7 +19,7 @@ Note: was tested only on Ubuntu and Red Hat.
 
 Usage
 -----
-The usage of greps is same as you would use grep (see exceptions in the man).
+The usage of greps is same as you would use grep (see exceptions in the man page).
 To see all the available options that greps adds to your installed grep - call greps --help or man greps.
 
 Examples
@@ -44,7 +44,7 @@ greps -r --perl what where/ --and -N 'c*'
 
 Recursively search what in where/ in Perl files that their name starts with c. Note that expressions don't have to be grouped next to each other (the exprssions here  are  --perl,  --and,  -N 'c*').
 
-greps -r what \( --c --or --perl \) --and -N 'd*' where/
+greps -r what \\( --c --or --perl \\) --and -N 'd*' where/
 
 Recursively search for what in where/ in C and Perl files that their name starts with d. Note that the --or option could be actualy removed and thus implicitely used.
 
