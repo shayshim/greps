@@ -11,7 +11,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details <http://www.gnu.org/licenses/>.
 
-# greps home <https://sourceforge.net/projects/greps/>
+# greps home <https://github.com/shayshim/greps>
 
 use strict;
 use warnings;
@@ -20,9 +20,9 @@ use Getopt::Long qw(:config gnu_getopt no_ignore_case);
 use File::Basename;
 #use Devel::StackTrace;
 use constant { 
-	VERSION => "0.81",
+	VERSION => "0.82",
 	PROG_NAME => scalar fileparse($0, qr/\.[^.]*/),
-	USAGE_MSG => "Usage: ".scalar fileparse($0, qr/\.[^.]*/)." [OPTION]... PATTERN [FILE]..."
+	USAGE_MSG => "Usage: ".scalar fileparse($0, qr/\.[^.]*/)." [OPTION]... PATTERN [FILE]... [-- GREPOPTIONS...]"
 };
 my $assert_flag = &enable_assert;
 
@@ -175,7 +175,7 @@ package ExpressionsFactory;
 use constant {
 	ASSIGNABLE_EXPRESSION_OPTIONS => ['name', 'iname', 'ext', 'iext'],
 	BINARY_OPERATOR_EXPRESSION_OPTIONS => ['and', 'or'],
-	LANGUAGE_EXPRESSION_OPTIONS => ['awk', 'c', 'cpp', 'make', 'perl', 'python', 'shell', 'tcl'],
+	LANGUAGE_EXPRESSION_OPTIONS => ['awk', 'c', 'cpp', 'go', 'java', 'make', 'perl', 'python', 'shell', 'tcl'],
 	PRUNE_EXPRESSION_OPTIONS => ['prune-name', 'prune-iname', 'prune-path', 'prune-ipath'],
 	SHEBANG_EXPRESSION_OPTIONS => ['shebang'],
 	BRACKET_OPERATOR_EXPRESSION_OPTIONS => ['paren-open', 'paren-close']
@@ -266,6 +266,12 @@ sub create_language_expression {
 	elsif ($lang eq 'c') {
 		@extensions=('h','c');
 	}
+	elsif ($lang eq 'go') {
+                @extensions=('go');
+        }
+	elsif ($lang eq 'java') {
+                @extensions=('java');
+        }
 	elsif ($lang eq 'perl') {
 		@extensions=('pl','PL','pm','plx','perl');
 		@shebangs=('perl');
@@ -282,7 +288,7 @@ sub create_language_expression {
 		@extensions=('py','pyx','pxd','pxi','scons');
 		@shebangs=('python');
 	}
-    elsif ($lang eq 'tcl') {
+        elsif ($lang eq 'tcl') {
 		@extensions=('tcl','tk','wish','itcl');
 		@shebangs=('tclsh');
 	}
@@ -315,8 +321,10 @@ if ($command_specs{print_command} || $command_specs{pretty_print}) {
 	exit($status);
 }
 system($command);
+my $xargs_exit_status=$?;
+print_debug (__LINE__, "xargs_exit_status=$xargs_exit_status");
 &print_debug(-1, $command);
-&myexit($status, $?);
+&myexit($status, $xargs_exit_status);
 
 #==============================================================================
 
@@ -334,8 +342,9 @@ sub create_command {
 	my $prunes_expressions_str = &get_concatenated_with_delimiter($prunes_str, "-type f -a", $expressions_str, " ");
 	$prunes_expressions_str = "\\\( $prunes_expressions_str \\\)" if ($expressions_str && $prunes_str);
 	$prunes_expressions_str .= " -a" if ($expressions_str);
+	my $grep_options = $command_specs{grep_options};
 	return &get_concatenated_with_delimiter("find", $follow, $paths, $recursive, $prunes_expressions_str, 
-		"\\\! -empty -a -print0 2>/dev/null | xargs -0", $max_files_per_grep, $max_grep_procs, "grep", $grep_args, $pattern, " ");
+		"\\\! -empty -a -print0 2>/dev/null | xargs -0", $max_files_per_grep, $max_grep_procs, "grep", $grep_options, $pattern, " ");
 }
 
 sub read_user_arguments {
@@ -348,9 +357,11 @@ sub read_user_arguments {
 		'follow-symlink|S!'=>\$follow, 'print|p!'=>\$print_command, 'delimiter=s'=>\$delimiter, 'debug|g!'=>\$debug, 'help|?' => \&help_handler,
 		'abs-path!'=>\$abs_path, 'ignore-me'=> 0, 'version|V' => \&version_handler, 'pretty-print' => \$pretty_print);
 	&add_expression_opts(\%hash_options);
-	&add_grep_opts(\%hash_options);
+	# not used anymore - uses the -- separator instead to separate the grep options from the greps options, see extract_paths_and_grep_options
+	#&add_grep_opts(\%hash_options);
 	&set_feedback_handler;
 	GetOptions(%hash_options);
+        print_debug (__LINE__, "ARGV AFTER GetOptions: @ARGV");
 	&usage if (scalar(@ARGV) == 0);
 	&check_parentheses(\@greps_expressions);
 	&add_missing_ors(\@greps_expressions);
@@ -358,10 +369,11 @@ sub read_user_arguments {
 	&unmark_all_expression_options(\@greps_expressions);
 	my $pattern = shift(@ARGV); #extract the pattern 
 	#$pattern='"'.$pattern.'" 'if ($pattern =~ m/\s/  &&  $pattern !~ m/^'.*'$/  &&  $pattern !~ m/^".*"$/);
-	my $paths = &extract_paths(\@ARGV);# all next args should be paths of files/dirs to search in
+	my ($paths, $grep_options) = &extract_paths_and_grep_options(\@ARGV);# all next args should be paths of files/dirs to search in, and then grep options
+        print_debug (__LINE__, "paths=$paths; grep_options=$grep_options");
 	my %command_specs = (max_files_per_grep => $max_files_per_grep, max_grep_procs => $max_grep_procs, recursive => $recursive, 
 		follow => $follow, print_command => $print_command, delimiter => $delimiter, paths => $paths, pattern => $pattern, 
-		greps_expressions => \@greps_expressions, greps_prunes => \@greps_prunes, pretty_print => $pretty_print);
+		greps_expressions => \@greps_expressions, greps_prunes => \@greps_prunes, pretty_print => $pretty_print, grep_options => $grep_options);
 	return \%command_specs;
 }
 
@@ -564,6 +576,8 @@ sub help_handler {
 	$help.=&get_padded_with_spaces("      --awk",$num_of_chars)."search in Awk files\n";
 	$help.=&get_padded_with_spaces("      --c",$num_of_chars)."search in C files\n";
 	$help.=&get_padded_with_spaces("      --cpp",$num_of_chars)."search in C++ files\n";
+	$help.=&get_padded_with_spaces("      --go",$num_of_chars)."search in Go files\n";
+	$help.=&get_padded_with_spaces("      --java",$num_of_chars)."search in Java files\n";
 	$help.=&get_padded_with_spaces("      --make",$num_of_chars)."search in Make files\n";
 	$help.=&get_padded_with_spaces("      --perl",$num_of_chars)."search in Perl files\n";
 	$help.=&get_padded_with_spaces("      --python",$num_of_chars)."search in Python files\n";
@@ -695,13 +709,28 @@ sub is_operaterable_on_left {
 	return (&is_evaluative_expression($_[0]) || ($_[0] eq "paren-close"));
 }
 
+# Returns the grep options, assuming they all have at least one dash in front of each 
+# We will find the first dash and cut out the whole thing after it and pass as is to grep
+sub extract_grep_optiobs {
+		
+}
+
 # Returns the paths as given by the user
-sub extract_paths {
+sub extract_paths_and_grep_options {
 	my @arguments = @{$_[0]};
 	my $paths="";
-	push (@arguments, ('.')) if (scalar(@arguments)==0);
+	my $grep_options="";
+	#push (@arguments, ('.')) if (scalar(@arguments)==0);
 	foreach my $arg(@arguments) {
-		if (!(-e $arg)) {
+        	print_debug (__LINE__, "current arg=$arg");
+		if ($arg =~ /^-/) {
+			$grep_options = &get_concatenated_with_delimiter($grep_options, $arg, " ");
+		}
+		elsif (length($grep_options)) {
+			&error(0,"$arg is not an option (after -- there must be only grep options)");
+			&usage
+		}
+		elsif (!(-e $arg)) {
 			&error(0,"$arg: No such file or directory");
 		}
 		else {
@@ -711,7 +740,7 @@ sub extract_paths {
 			$paths = &get_concatenated_with_delimiter($paths, $arg, " ");
 		}
 	}
-	return $paths;
+	return ($paths, $grep_options);
 }
 
 # Returns the given greps patterns in the format of find, for example -name '*.cpp' ...
@@ -917,8 +946,8 @@ sub pretty_print {
 	my ($command) = @_;
 	my @saved = ();
 	my $command_with_stubs = &save_assignable_tests($command, \@saved);
-	print "saved=@saved\n";
-	print "command_with_stubs=$command_with_stubs\n";
+	#print "saved=@saved\n";
+	#print "command_with_stubs=$command_with_stubs\n";
 	my @splitted = split(/(\\\(|\\\))/, $command_with_stubs);
 	my @command_array = ();
 	foreach my $item(@splitted) {
@@ -954,10 +983,10 @@ sub save_assignable_tests {
 	$out =~ s/(find.+?-type f (-a )?)//;
 	my $prefix = $1;
 	$prefix = &get_saved($prefix, $saved_ref, \$index);
-	print "prefix=$prefix\n";
+	#print "prefix=$prefix\n";
 	$out =~ s/((-a )?\\! -empty -a -print0 2>\/dev\/null \| xargs.+)//;
 	my $suffix = $1;
-	print "suffix=$suffix\n";
+	#print "suffix=$suffix\n";
 	$out = &get_saved($out, $saved_ref, \$index);
 	return $prefix.$out.$suffix;
 }
