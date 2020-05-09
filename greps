@@ -559,7 +559,7 @@ sub help_handler {
 	my $help=USAGE_MSG."\n";
 	$help.="Search for PATTERN in FILE.\n";
 	$help.="PATTERN is, by default, a basic regular expression (BRE).\n";
-	$help.="Example: greps -i -X h,c 'hello world'\n";
+	$help.="Example: greps -rX h,c 'hello world' -- -i -- color\n";
 	$help.="\nMiscellaneous:\n";
 	$help.=&get_padded_with_spaces("  -V  --version",$num_of_chars)."print version information and exit\n";
 	$help.=&get_padded_with_spaces("      --help",$num_of_chars)."display this help and exit\n";
@@ -572,6 +572,7 @@ sub help_handler {
 	$help.=&get_padded_with_spaces("      --prune-[i]name=NAME",$num_of_chars)."names of dirs seperated by commas to prune\n";
 	$help.=&get_padded_with_spaces("      --prune-[i]path=PATH",$num_of_chars)."paths of dirs seperated by commas to prune\n";
 	$help.=&get_padded_with_spaces("      --[no]follow-symlink",$num_of_chars)."follow symbolic links (default is enabled)\n";
+	$help.=&get_padded_with_spaces("  -r, --recursive",$num_of_chars)."recursively search in listed directories (default is disabled)\n";
 	$help.="\nLanguages subsets:\n";
 	$help.=&get_padded_with_spaces("      --awk",$num_of_chars)."search in Awk files\n";
 	$help.=&get_padded_with_spaces("      --c",$num_of_chars)."search in C files\n";
