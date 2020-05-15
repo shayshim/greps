@@ -737,6 +737,9 @@ sub extract_paths_and_grep_options {
 			$paths = &get_concatenated_with_delimiter($paths, $arg, " ");
 		}
 	}
+	if (length($paths) == 0) {
+		$paths = ".";
+	}
 	return ($paths, $grep_options);
 }
 
