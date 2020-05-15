@@ -175,7 +175,7 @@ package ExpressionsFactory;
 use constant {
 	ASSIGNABLE_EXPRESSION_OPTIONS => ['name', 'iname', 'ext', 'iext'],
 	BINARY_OPERATOR_EXPRESSION_OPTIONS => ['and', 'or'],
-	LANGUAGE_EXPRESSION_OPTIONS => ['awk', 'c', 'cpp', 'go', 'java', 'make', 'perl', 'python', 'shell', 'tcl'],
+	LANGUAGE_EXPRESSION_OPTIONS => ['awk', 'c', 'cpp', 'go', 'gradle', 'java', 'make', 'maven', 'perl', 'python', 'scala', 'shell', 'tcl'],
 	PRUNE_EXPRESSION_OPTIONS => ['prune-name', 'prune-iname', 'prune-path', 'prune-ipath'],
 	SHEBANG_EXPRESSION_OPTIONS => ['shebang'],
 	BRACKET_OPERATOR_EXPRESSION_OPTIONS => ['paren-open', 'paren-close']
@@ -263,12 +263,18 @@ sub create_language_expression {
 		@names = ('[Mm]akefile','gnumakefile');
 		@extensions = ('mak','mk');
 	}
+	elsif ($lang eq 'maven') {
+		@names = ('pom.xml', 'POM.xml');
+	}
 	elsif ($lang eq 'c') {
 		@extensions=('h','c');
 	}
 	elsif ($lang eq 'go') {
                 @extensions=('go');
         }
+	elsif ($lang eq 'gradle') {
+		@names = ('build.gradle');
+	}
 	elsif ($lang eq 'java') {
                 @extensions=('java');
         }
@@ -288,6 +294,9 @@ sub create_language_expression {
 		@extensions=('py','pyx','pxd','pxi','scons');
 		@shebangs=('python');
 	}
+	elsif ($lang eq 'scala') {
+                @extensions=('scala');
+        }
         elsif ($lang eq 'tcl') {
 		@extensions=('tcl','tk','wish','itcl');
 		@shebangs=('tclsh');
@@ -581,10 +590,13 @@ sub help_handler {
 	$help.=&get_padded_with_spaces("      --c",$num_of_chars)."search in C files\n";
 	$help.=&get_padded_with_spaces("      --cpp",$num_of_chars)."search in C++ files\n";
 	$help.=&get_padded_with_spaces("      --go",$num_of_chars)."search in Go files\n";
+	$help.=&get_padded_with_spaces("      --gradle",$num_of_chars)."search in Gradle files\n";
 	$help.=&get_padded_with_spaces("      --java",$num_of_chars)."search in Java files\n";
 	$help.=&get_padded_with_spaces("      --make",$num_of_chars)."search in Make files\n";
+	$help.=&get_padded_with_spaces("      --maven",$num_of_chars)."search in Maven files\n";
 	$help.=&get_padded_with_spaces("      --perl",$num_of_chars)."search in Perl files\n";
 	$help.=&get_padded_with_spaces("      --python",$num_of_chars)."search in Python files\n";
+	$help.=&get_padded_with_spaces("      --scala",$num_of_chars)."search in Scala files\n";
 	$help.=&get_padded_with_spaces("      --shell",$num_of_chars)."search in Shell files\n";
 	$help.=&get_padded_with_spaces("      --tcl",$num_of_chars)."search in Tcl files\n";
 	$help.="\nOutput control:\n";
