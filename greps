@@ -724,12 +724,8 @@ sub extract_paths_and_grep_options {
 	#push (@arguments, ('.')) if (scalar(@arguments)==0);
 	foreach my $arg(@arguments) {
         	print_debug (__LINE__, "current arg=$arg");
-		if ($arg =~ /^-/) {
+		if ($arg =~ /^-/ || length($grep_options)) {
 			$grep_options = &get_concatenated_with_delimiter($grep_options, $arg, " ");
-		}
-		elsif (length($grep_options)) {
-			&error(0,"$arg is not an option (after -- there must be only grep options)");
-			&usage
 		}
 		elsif (!(-e $arg)) {
 			&error(0,"$arg: No such file or directory");
