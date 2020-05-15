@@ -754,6 +754,9 @@ sub extract_paths_and_grep_options {
 	}
 	if (length($paths) == 0) {
 		$paths = ".";
+		if ($abs_path) {
+			$paths=abs_path($paths);
+		}
 	}
 	return ($paths, $grep_options);
 }
