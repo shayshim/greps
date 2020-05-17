@@ -264,7 +264,7 @@ sub create_language_expression {
 		@extensions = ('mak','mk');
 	}
 	elsif ($lang eq 'maven') {
-		@names = ('pom.xml'');
+		@names = ('pom.xml');
 	}
 	elsif ($lang eq 'c') {
 		@extensions=('h','c');
