@@ -381,12 +381,20 @@ sub read_user_arguments {
 	&unmark_all_expression_options(\@greps_expressions);
 	my $pattern = shift(@ARGV); #extract the pattern 
 	#$pattern='"'.$pattern.'" 'if ($pattern =~ m/\s/  &&  $pattern !~ m/^'.*'$/  &&  $pattern !~ m/^".*"$/);
-	my ($paths, $grep_options) = &extract_paths_and_grep_options(\@ARGV);# all next args should be paths of files/dirs to search in, and then grep options
+	my $grep_opts = &read_grep_opts_env_var;
+	my ($paths, $grep_options) = &extract_paths_and_grep_options(\@ARGV, $grep_opts);# all next args should be paths of files/dirs to search in, and then grep options
         print_debug (__LINE__, "paths=$paths; grep_options=$grep_options");
 	my %command_specs = (max_files_per_grep => $max_files_per_grep, max_grep_procs => $max_grep_procs, recursive => $recursive, 
 		follow => $follow, print_command => $print_command, delimiter => $delimiter, paths => $paths, pattern => $pattern, 
 		greps_expressions => \@greps_expressions, greps_prunes => \@greps_prunes, pretty_print => $pretty_print, grep_options => $grep_options);
 	return \%command_specs;
+}
+
+sub read_grep_opts_env_var {
+	if (exists $ENV{GREPS_GREP_OPTIONS}) {
+		return $ENV{GREPS_GREP_OPTIONS};
+	}
+	return "";
 }
 
 #Return the prunes as string formatted for find command
@@ -734,8 +742,8 @@ sub extract_grep_optiobs {
 # Returns the paths as given by the user
 sub extract_paths_and_grep_options {
 	my @arguments = @{$_[0]};
+	my $grep_options = "$_[1]";
 	my $paths="";
-	my $grep_options="";
 	#push (@arguments, ('.')) if (scalar(@arguments)==0);
 	foreach my $arg(@arguments) {
         	print_debug (__LINE__, "current arg=$arg");
