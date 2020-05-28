@@ -1,0 +1,21 @@
+{
+  "languages": {
+    "java": {
+      "extensions": [
+        "java"
+      ]
+    },
+    "perl": {
+      "extensions": [
+        "pl",
+        "PL",
+        "pm",
+        "plx",
+        "perl"
+      ],
+      "shebangs": [
+        "perl"
+      ]
+    }
+  }
+}
