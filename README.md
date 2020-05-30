@@ -13,14 +13,11 @@ chmod a+r,a+x greps
 
 cp greps /usr/local/bin
 
-cp greps.1.gz /usr/share/man/man1/ # for manpage
-
 Note: was tested only on Ubuntu and Red Hat.
 
 Usage
 -----
-The usage of greps is same as you would use grep (see exceptions in the man page).
-To see all the available options that greps adds to your installed grep - call greps --help or man greps.
+To see all the available options that greps adds to your installed grep - call greps --help.
 
 Examples
 --------
