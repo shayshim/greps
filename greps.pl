@@ -382,14 +382,10 @@ sub read_user_arguments {
 	return \%command_specs;
 }
 
-sub read_grep_opts_env_var {
+sub get_grep_opts_from_config {
 	if (exists $ENV{GREPS_GREP_OPTIONS}) {
 		return $ENV{GREPS_GREP_OPTIONS};
 	}
-	return "";
-}
-
-sub get_grep_opts_from_config {
 	my %grep_config = ExpressionsFactory::instance->get_grep_config;
 	return $grep_config{options};
 }
@@ -721,12 +717,6 @@ sub is_operaterable_on_right {
 
 sub is_operaterable_on_left {
 	return (&is_evaluative_expression($_[0]) || ($_[0] eq "paren-close"));
-}
-
-# Returns the grep options, assuming they all have at least one dash in front of each 
-# We will find the first dash and cut out the whole thing after it and pass as is to grep
-sub extract_grep_optiobs {
-		
 }
 
 # Returns the paths as given by the user
