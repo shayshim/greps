@@ -133,7 +133,7 @@ sub greps_to_find_expression {
 	my @shebangs = split /$delimiter/, $self->{_shebangs};
 	my $shebangs_str = $shebang_prefix.main::get_concatenated_with_delimiter(\@shebangs, $alternate.$shebang_prefix);
 	my $grep = "grep -qE \"$shebangs_str\"";
-	my $expression_str = "\\\( -perm -u+x -a \\\( -exec sh -c \"head -1 {} | $grep \" \\; \\\) \\\)";
+	my $expression_str = "\\\( -perm /u+x,g+x,o+x -a \\\( -exec sh -c \"head -1 {} | $grep \" \\; \\\) \\\)";
 	return $expression_str;
 }
 
