@@ -192,20 +192,25 @@ my $yaml_tiny_exists = eval {
 };
 
 sub new {
-	my ($class, $languages_ref, $grep_ref) = @_;
+	my ($class, $languages_ref, $grep_ref, $config_file_path) = @_;
 	my $hash_ref = &get_option_to_creator_hash_ref($languages_ref);
-	my $self = {_option_to_creator_hash_ref => $hash_ref, _delimiter => 0, _languages => $languages_ref, _grep_config => $grep_ref};
+	my $self = {_option_to_creator_hash_ref => $hash_ref, _delimiter => 0, _languages => $languages_ref, _grep_config => $grep_ref, _config_file_path =>$config_file_path};
 	return bless $self, $class;
 }
 
 sub instance {
 	if ($_instance == 0) {
-		my %config =  %{&read_config};
+		my $config_file_path = &read_config_file_path;
+		my %config =  %{&read_config($config_file_path)};
 		my %languages = %{$config{languages}};
 		my %grep = %{$config{grep}};
-		$_instance = ExpressionsFactory->new(\%languages, \%grep);
+		$_instance = ExpressionsFactory->new(\%languages, \%grep, $config_file_path);
 	}
 	return $_instance;
+}
+
+sub get_config_file_path {
+	return  $_[0]->{_config_file_path};
 }
 
 sub get_languages {
@@ -216,9 +221,13 @@ sub get_grep_config {
 	return %{$_[0]->{_grep_config}};
 }
 
-sub read_config {
+sub read_config_file_path {
 	my $home_directory = $ENV{HOME};
-	my $config_file = $home_directory."/".$prog_yaml_file_name;
+        return $home_directory."/".$prog_yaml_file_name;
+}
+
+sub read_config {
+	my ($config_file) = @_; 
 	my %config = (languages => {}, grep => {options => ""});
 	if (-e $config_file && $yaml_tiny_exists == 1) {
 		my $yaml = YAML::Tiny->read($config_file);
@@ -588,9 +597,14 @@ sub help_handler {
 	$help.=&get_padded_with_spaces("  -r, -R, --[no]recursive",$num_of_chars)."recursively search in listed directories (enabled by default)\n";
 	$help.="\nLanguages subsets:\n";
 	my %languages = ExpressionsFactory::instance->get_languages;
-	foreach my $lang (sort(keys %languages)) {
-		my $lang_name = $lang;
-		$help.=&get_padded_with_spaces("      --$lang",$num_of_chars)."search in ".ucfirst($lang)." files\n";	
+	if (!%languages) {
+		$help.=&get_padded_with_spaces("      ",$num_of_chars)."no languages found. You can define languages in file ".ExpressionsFactory::instance->get_config_file_path."\n";
+	}
+	else {
+		foreach my $lang (sort(keys %languages)) {
+			my $lang_name = $lang;
+			$help.=&get_padded_with_spaces("      --$lang",$num_of_chars)."search in ".ucfirst($lang)." files\n";	
+		}
 	}
 	$help.="\nOutput control:\n";
 	$help.=&get_padded_with_spaces("  -g  --debug",$num_of_chars)."execution with debug messages\n";
