@@ -734,11 +734,13 @@ sub extract_paths_and_grep_options {
 	my @arguments = @{$_[0]};
 	my $grep_options = "$_[1]";
 	my $paths="";
+	my $already_in_command_grep_options = 0;
 	#push (@arguments, ('.')) if (scalar(@arguments)==0);
 	foreach my $arg(@arguments) {
         	print_debug (__LINE__, "current arg=$arg");
-		if ($arg =~ /^-/ || length($grep_options)) {
+		if ($arg =~ /^-/ || $already_in_command_grep_options) {
 			$grep_options = &get_concatenated_with_delimiter($grep_options, $arg, " ");
+			$already_in_command_grep_options = 1;
 		}
 		elsif (!(-e $arg)) {
 			&error(0,"$arg: No such file or directory");
