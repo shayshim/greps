@@ -1,0 +1,29 @@
+languages:
+  shell:
+    extensions:
+      - sh
+      - bash
+      - zsh
+    shebangs:
+      - sh
+      - bash
+  go:
+    extensions:
+      - go
+  java:
+    extensions: 
+      - java
+  perl:
+    extensions: 
+      - pl
+      - PL
+      - pm
+      - plx
+      - perl
+    shebangs: 
+      - perl
+  maven: 
+    names:
+      - pom.xml
+grep:
+  options: --color=auto -i

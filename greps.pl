@@ -20,7 +20,7 @@ use Getopt::Long qw(:config gnu_getopt no_ignore_case);
 use File::Basename;
 #use Devel::StackTrace;
 use constant { 
-	VERSION => "0.82",
+	VERSION => "0.83",
 	PROG_NAME => scalar fileparse($0, qr/\.[^.]*/),
 	USAGE_MSG => "Usage: ".scalar fileparse($0, qr/\.[^.]*/)." [OPTION]... PATTERN [FILE]... [-- GREPOPTIONS...]"
 };
@@ -133,7 +133,7 @@ sub greps_to_find_expression {
 	my @shebangs = split /$delimiter/, $self->{_shebangs};
 	my $shebangs_str = $shebang_prefix.main::get_concatenated_with_delimiter(\@shebangs, $alternate.$shebang_prefix);
 	my $grep = "grep -qE \"$shebangs_str\"";
-	my $expression_str = "\\\( -perm -u+x -a \\\( -exec sh -c \"head -1 {} | $grep \" \\; \\\) \\\)";
+	my $expression_str = "\\\( -perm /u+x,g+x,o+x -a \\\( -exec sh -c \"head -1 {} | $grep \" \\; \\\) \\\)";
 	return $expression_str;
 }
 
@@ -172,34 +172,69 @@ sub greps_to_find_expression {
 
 package ExpressionsFactory;
 
+use File::Glob;
+use YAML::Tiny;
 use constant {
 	ASSIGNABLE_EXPRESSION_OPTIONS => ['name', 'iname', 'ext', 'iext'],
 	BINARY_OPERATOR_EXPRESSION_OPTIONS => ['and', 'or'],
-	LANGUAGE_EXPRESSION_OPTIONS => ['awk', 'c', 'cpp', 'go', 'gradle', 'java', 'make', 'maven', 'perl', 'python', 'scala', 'shell', 'tcl'],
 	PRUNE_EXPRESSION_OPTIONS => ['prune-name', 'prune-iname', 'prune-path', 'prune-ipath'],
 	SHEBANG_EXPRESSION_OPTIONS => ['shebang'],
 	BRACKET_OPERATOR_EXPRESSION_OPTIONS => ['paren-open', 'paren-close']
 };
 
 my $_instance = 0;
+my $prog_yaml_file_name = ".".&main::PROG_NAME.".yaml";
+
+my $yaml_tiny_exists = eval {
+  require YAML::Tiny;
+  YAML::Tiny->import();
+  1;
+};
 
 sub new {
-	my ($class) = @_;
-	my $self = {_option_to_creator_hash_ref => &get_option_to_creator_hash_ref, _delimiter => 0};
+	my ($class, $languages_ref, $grep_ref) = @_;
+	my $hash_ref = &get_option_to_creator_hash_ref($languages_ref);
+	my $self = {_option_to_creator_hash_ref => $hash_ref, _delimiter => 0, _languages => $languages_ref, _grep_config => $grep_ref};
 	return bless $self, $class;
 }
 
 sub instance {
-	$_instance ||= ExpressionsFactory->new();
+	if ($_instance == 0) {
+		my %config =  %{&read_config};
+		my %languages = %{$config{languages}};
+		my %grep = %{$config{grep}};
+		$_instance = ExpressionsFactory->new(\%languages, \%grep);
+	}
+	return $_instance;
+}
+
+sub get_languages {
+	return %{$_[0]->{_languages}};
+}
+
+sub get_grep_config {
+	return %{$_[0]->{_grep_config}};
+}
+
+sub read_config {
+	my $home_directory = $ENV{HOME};
+	my $config_file = $home_directory."/".$prog_yaml_file_name;
+	my %config = (languages => {}, grep => {options => ""});
+	if (-e $config_file && $yaml_tiny_exists == 1) {
+		my $yaml = YAML::Tiny->read($config_file);
+		%config = %{$yaml->[0]};
+	}
+	return \%config;
 }
 
 sub get_option_to_creator_hash_ref {
+	my %languages = %{$_[0]};
 	my %hash = ();
 	my @options = @{&ASSIGNABLE_EXPRESSION_OPTIONS};
 	&add_option_handler_pair_to_hash(\@options, \&create_assignable_expression, \%hash);
 	@options = @{&BINARY_OPERATOR_EXPRESSION_OPTIONS};
 	&add_option_handler_pair_to_hash(\@options, \&create_binary_operator_expression, \%hash);
-	@options = @{&LANGUAGE_EXPRESSION_OPTIONS};
+	@options = keys %languages;
 	&add_option_handler_pair_to_hash(\@options, \&create_language_expression, \%hash);
 	@options = @{&PRUNE_EXPRESSION_OPTIONS};
 	&add_option_handler_pair_to_hash(\@options, \&create_prune_expression, \%hash);
@@ -251,60 +286,17 @@ sub create_bracket_operator_expression {
 
 sub create_language_expression {
 	my ($lang, $delimiter) = @_;
-	my @extensions = ();
-	my @names = ();
-	my @shebangs = ();
+	my %languages = ExpressionsFactory::instance->get_languages;
+	my %language_config = %{$languages{$lang}};
+	my @extensions = $language_config{extensions};
+	my @names = $language_config{names};
+	my @shebangs = $language_config{shebangs};
 	my $shebang_prefix='^[#][!].*[[:space:]/]';
 	my $alternate='\\\\\|';
-	if ($lang eq 'cpp') {
-		@extensions=('h','hh','hpp','hxx','cpp','cc','cxx');
-	}
-	elsif ($lang eq 'make') {
-		@names = ('[Mm]akefile','gnumakefile');
-		@extensions = ('mak','mk');
-	}
-	elsif ($lang eq 'maven') {
-		@names = ('pom.xml');
-	}
-	elsif ($lang eq 'c') {
-		@extensions=('h','c');
-	}
-	elsif ($lang eq 'go') {
-                @extensions=('go');
-        }
-	elsif ($lang eq 'gradle') {
-		@names = ('build.gradle');
-	}
-	elsif ($lang eq 'java') {
-                @extensions=('java');
-        }
-	elsif ($lang eq 'perl') {
-		@extensions=('pl','PL','pm','plx','perl');
-		@shebangs=('perl');
-	}
-	elsif ($lang eq 'shell') {
-		@extensions=('sh','SH','bsh','bash','ksh','zsh');
-		@shebangs=("sh","bash","csh","ksh","tcsh","tsh");
-	}
-	elsif ($lang eq 'awk') {
-		@extensions=('awk','gawk','mawk');
-		@shebangs=('awk');
-	}
-	elsif ($lang eq 'python') {
-		@extensions=('py','pyx','pxd','pxi','scons');
-		@shebangs=('python');
-	}
-	elsif ($lang eq 'scala') {
-                @extensions=('scala');
-        }
-        elsif ($lang eq 'tcl') {
-		@extensions=('tcl','tk','wish','itcl');
-		@shebangs=('tclsh');
-	}
 	return LanguageExpression->new($lang, $delimiter, 
-									main::get_concatenated_with_delimiter(\@names, $delimiter), 
-									main::get_concatenated_with_delimiter(\@extensions, $delimiter),
-									main::get_concatenated_with_delimiter(\@shebangs, $delimiter));
+									main::get_concatenated_with_delimiter($names[0], $delimiter), 
+									main::get_concatenated_with_delimiter($extensions[0], $delimiter),
+									main::get_concatenated_with_delimiter($shebangs[0], $delimiter));
 }
 
 sub set_delimiter {
@@ -381,7 +373,7 @@ sub read_user_arguments {
 	&unmark_all_expression_options(\@greps_expressions);
 	my $pattern = shift(@ARGV); #extract the pattern 
 	#$pattern='"'.$pattern.'" 'if ($pattern =~ m/\s/  &&  $pattern !~ m/^'.*'$/  &&  $pattern !~ m/^".*"$/);
-	my $grep_opts = &read_grep_opts_env_var;
+	my $grep_opts = &get_grep_opts_from_config;
 	my ($paths, $grep_options) = &extract_paths_and_grep_options(\@ARGV, $grep_opts);# all next args should be paths of files/dirs to search in, and then grep options
         print_debug (__LINE__, "paths=$paths; grep_options=$grep_options");
 	my %command_specs = (max_files_per_grep => $max_files_per_grep, max_grep_procs => $max_grep_procs, recursive => $recursive, 
@@ -390,11 +382,12 @@ sub read_user_arguments {
 	return \%command_specs;
 }
 
-sub read_grep_opts_env_var {
+sub get_grep_opts_from_config {
 	if (exists $ENV{GREPS_GREP_OPTIONS}) {
 		return $ENV{GREPS_GREP_OPTIONS};
 	}
-	return "";
+	my %grep_config = ExpressionsFactory::instance->get_grep_config;
+	return $grep_config{options};
 }
 
 #Return the prunes as string formatted for find command
@@ -594,19 +587,11 @@ sub help_handler {
 	$help.=&get_padded_with_spaces("      --[no]follow-symlink",$num_of_chars)."follow symbolic links (enabled by default)\n";
 	$help.=&get_padded_with_spaces("  -r, -R, --[no]recursive",$num_of_chars)."recursively search in listed directories (enabled by default)\n";
 	$help.="\nLanguages subsets:\n";
-	$help.=&get_padded_with_spaces("      --awk",$num_of_chars)."search in Awk files\n";
-	$help.=&get_padded_with_spaces("      --c",$num_of_chars)."search in C files\n";
-	$help.=&get_padded_with_spaces("      --cpp",$num_of_chars)."search in C++ files\n";
-	$help.=&get_padded_with_spaces("      --go",$num_of_chars)."search in Go files\n";
-	$help.=&get_padded_with_spaces("      --gradle",$num_of_chars)."search in Gradle files\n";
-	$help.=&get_padded_with_spaces("      --java",$num_of_chars)."search in Java files\n";
-	$help.=&get_padded_with_spaces("      --make",$num_of_chars)."search in Make files\n";
-	$help.=&get_padded_with_spaces("      --maven",$num_of_chars)."search in Maven files\n";
-	$help.=&get_padded_with_spaces("      --perl",$num_of_chars)."search in Perl files\n";
-	$help.=&get_padded_with_spaces("      --python",$num_of_chars)."search in Python files\n";
-	$help.=&get_padded_with_spaces("      --scala",$num_of_chars)."search in Scala files\n";
-	$help.=&get_padded_with_spaces("      --shell",$num_of_chars)."search in Shell files\n";
-	$help.=&get_padded_with_spaces("      --tcl",$num_of_chars)."search in Tcl files\n";
+	my %languages = ExpressionsFactory::instance->get_languages;
+	foreach my $lang (sort(keys %languages)) {
+		my $lang_name = $lang;
+		$help.=&get_padded_with_spaces("      --$lang",$num_of_chars)."search in ".ucfirst($lang)." files\n";	
+	}
 	$help.="\nOutput control:\n";
 	$help.=&get_padded_with_spaces("  -g  --debug",$num_of_chars)."execution with debug messages\n";
 	$help.=&get_padded_with_spaces("  -p  --print",$num_of_chars)."print the generated command and exit\n";
@@ -653,7 +638,8 @@ sub add_expression_opts {
 	my @pad = ("|N=s", "=s", "|X=s", "=s");
 	my @assignable_expressions = @{&get_zipped(&ExpressionsFactory::ASSIGNABLE_EXPRESSION_OPTIONS, \@pad)};
 	my @binary_operator_expressions = @{&ExpressionsFactory::BINARY_OPERATOR_EXPRESSION_OPTIONS};
-	my @languages_expressions = @{&ExpressionsFactory::LANGUAGE_EXPRESSION_OPTIONS};
+	my %languages = ExpressionsFactory::instance->get_languages;
+	my @languages_expressions = keys %languages;
 	@pad = ("=s", "=s", "=s", "=s");
 	my @prune_expressions = @{&get_zipped(&ExpressionsFactory::PRUNE_EXPRESSION_OPTIONS, \@pad)};
 	my @bracket_expressions = @{&ExpressionsFactory::BRACKET_OPERATOR_EXPRESSION_OPTIONS};
@@ -733,22 +719,18 @@ sub is_operaterable_on_left {
 	return (&is_evaluative_expression($_[0]) || ($_[0] eq "paren-close"));
 }
 
-# Returns the grep options, assuming they all have at least one dash in front of each 
-# We will find the first dash and cut out the whole thing after it and pass as is to grep
-sub extract_grep_optiobs {
-		
-}
-
 # Returns the paths as given by the user
 sub extract_paths_and_grep_options {
 	my @arguments = @{$_[0]};
 	my $grep_options = "$_[1]";
 	my $paths="";
+	my $already_in_command_grep_options = 0;
 	#push (@arguments, ('.')) if (scalar(@arguments)==0);
 	foreach my $arg(@arguments) {
         	print_debug (__LINE__, "current arg=$arg");
-		if ($arg =~ /^-/ || length($grep_options)) {
+		if ($arg =~ /^-/ || $already_in_command_grep_options) {
 			$grep_options = &get_concatenated_with_delimiter($grep_options, $arg, " ");
+			$already_in_command_grep_options = 1;
 		}
 		elsif (!(-e $arg)) {
 			&error(0,"$arg: No such file or directory");
@@ -844,14 +826,14 @@ sub get_concatenated_with_delimiter {
 	my @strings = ();
 	my $delimiter = pop(@_);
 	if (ref($_[0]) eq "ARRAY") {
-    	my ($strings_ref) = @_;
-    	@strings = @$strings_ref;
+    		my ($strings_ref) = @_;
+    		@strings = @$strings_ref;
 	}
 	else {
 		@strings = @_;
 	}
 	my $result = "";
-    foreach my $str(@strings) {
+    	foreach my $str(@strings) {
 		$result .= "$str$delimiter" if ($str);
 	}
 	$result = substr($result, 0, length($result)-length($delimiter));
