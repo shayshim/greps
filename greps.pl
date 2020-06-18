@@ -22,7 +22,7 @@ use File::Basename;
 use constant { 
 	VERSION => "0.83",
 	PROG_NAME => scalar fileparse($0, qr/\.[^.]*/),
-	USAGE_MSG => "Usage: ".scalar fileparse($0, qr/\.[^.]*/)." [OPTION]... PATTERN [FILE]... [-- GREPOPTIONS...]"
+	USAGE_MSG => "Usage: ".scalar fileparse($0, qr/\.[^.]*/)." [OPTION]... PATTERN [FILE]... [-- GREPOPTIONS...]",
 };
 my $assert_flag = &enable_assert;
 
@@ -370,11 +370,13 @@ sub read_user_arguments {
 		'follow-symlink|S!'=>\$follow, 'print|p!'=>\$print_command, 'delimiter=s'=>\$delimiter, 'debug|g!'=>\$debug, 'help|?' => \&help_handler,
 		'abs-path!'=>\$abs_path, 'ignore-me'=> 0, 'version|V' => \&version_handler, 'pretty-print' => \$pretty_print);
 	&add_expression_opts(\%hash_options);
+	&add_grep_posix_opts(\%hash_options);
 	# not used anymore - uses the -- separator instead to separate the grep options from the greps options, see extract_paths_and_grep_options
 	#&add_grep_opts(\%hash_options);
 	&set_feedback_handler;
 	GetOptions(%hash_options);
         print_debug (__LINE__, "ARGV AFTER GetOptions: @ARGV");
+	print_debug (__LINE__, "hash_options: ".&to_string_hash(\%hash_options));
 	&usage if (scalar(@ARGV) == 0);
 	&check_parentheses(\@greps_expressions);
 	&add_missing_ors(\@greps_expressions);
@@ -382,13 +384,21 @@ sub read_user_arguments {
 	&unmark_all_expression_options(\@greps_expressions);
 	my $pattern = shift(@ARGV); #extract the pattern 
 	#$pattern='"'.$pattern.'" 'if ($pattern =~ m/\s/  &&  $pattern !~ m/^'.*'$/  &&  $pattern !~ m/^".*"$/);
-	my $grep_opts = &get_grep_opts_from_config;
+	my $grep_opts = &get_concatenated_with_delimiter(&get_grep_opts_from_config, $grep_args, " ");
 	my ($paths, $grep_options) = &extract_paths_and_grep_options(\@ARGV, $grep_opts);# all next args should be paths of files/dirs to search in, and then grep options
         print_debug (__LINE__, "paths=$paths; grep_options=$grep_options");
 	my %command_specs = (max_files_per_grep => $max_files_per_grep, max_grep_procs => $max_grep_procs, recursive => $recursive, 
 		follow => $follow, print_command => $print_command, delimiter => $delimiter, paths => $paths, pattern => $pattern, 
 		greps_expressions => \@greps_expressions, greps_prunes => \@greps_prunes, pretty_print => $pretty_print, grep_options => $grep_options);
 	return \%command_specs;
+}
+
+sub add_grep_posix_opts {
+	my $hash_options_ref = $_[0];
+	my %grep_posix_opts = %{&get_grep_posix_opts};
+	foreach my $key(keys %grep_posix_opts) {
+		$hash_options_ref -> {$key} = $grep_posix_opts{$key};
+	}
 }
 
 sub get_grep_opts_from_config {
@@ -827,13 +837,14 @@ sub get_zipped {
 	return \@zipped_array;
 }
 
-sub print_hash {
+sub to_string_hash {
 	my %hash = %{$_[0]};
-	print \%hash."(\n";
+	my $str = \%hash."(\n";
 	foreach my $key(keys %hash) {
-		print "\t$key => ".$hash{$key}."\n";
+		$str .= "\t$key => ".$hash{$key}."\n";
 	}
-	print ")\n";
+	$str .= ")\n";
+	return $str;
 }
 
 sub get_concatenated_with_delimiter {
@@ -1031,6 +1042,11 @@ sub usage {
 	print STDERR USAGE_MSG."\n";
 	print STDERR "Try `".&PROG_NAME." --help' for more information.\n";
 	exit 2;
+}
+
+sub get_grep_posix_opts {
+	my %grep_posix_opts = ("E" => \&grep_bool_opts_handler, "F" => \&grep_bool_opts_handler, "c" => \&grep_bool_opts_handler, "e=s" => \&grep_assignable_opts_handler, "f=s" => \&grep_assignable_opts_handler, "i" => \&grep_bool_opts_handler, "l" => \&grep_bool_opts_handler, "n" => \&grep_bool_opts_handler, "q" => \&grep_bool_opts_handler, "s" => \&grep_bool_opts_handler, "v" => \&grep_bool_opts_handler, "x" => \&grep_bool_opts_handler);
+	return \%grep_posix_opts;
 }
 
 sub enable_assert {
