@@ -356,8 +356,12 @@ sub create_command {
 	$prunes_expressions_str = "\\\( $prunes_expressions_str \\\)" if ($expressions_str && $prunes_str);
 	$prunes_expressions_str .= " -a" if ($expressions_str);
 	my $grep_options = $command_specs{grep_options};
-	return &get_concatenated_with_delimiter("find", $follow, $paths, $recursive, $prunes_expressions_str, 
-		"\\\! -empty -a -print0 2>/dev/null | xargs -0", $max_files_per_grep, $max_grep_procs, "grep", $grep_options, $pattern, " ");
+	my $cmd = &get_concatenated_with_delimiter("find", $follow, $paths, $recursive, $prunes_expressions_str, 
+		"\\\! -empty -a -print0 2>/dev/null | xargs -0", $max_files_per_grep, $max_grep_procs, "grep", $grep_options, " ");
+	if (! &contains_options_for_patterns($grep_args)) {
+		$cmd = &get_concatenated_with_delimiter($cmd, $pattern, " ");
+	}
+	return $cmd;
 }
 
 sub read_user_arguments {
@@ -377,12 +381,15 @@ sub read_user_arguments {
 	GetOptions(%hash_options);
         print_debug (__LINE__, "ARGV AFTER GetOptions: @ARGV");
 	print_debug (__LINE__, "hash_options: ".&to_string_hash(\%hash_options));
-	&usage if (scalar(@ARGV) == 0);
+	&usage if (scalar(@ARGV) == 0  &&  ! &contains_options_for_patterns($grep_args));
 	&check_parentheses(\@greps_expressions);
 	&add_missing_ors(\@greps_expressions);
 	&check_binary_operators(\@greps_expressions);
 	&unmark_all_expression_options(\@greps_expressions);
-	my $pattern = shift(@ARGV); #extract the pattern 
+	my $pattern = "";
+	if (! &contains_options_for_patterns($grep_args)) {
+		$pattern = shift(@ARGV); #extract the pattern
+	}
 	#$pattern='"'.$pattern.'" 'if ($pattern =~ m/\s/  &&  $pattern !~ m/^'.*'$/  &&  $pattern !~ m/^".*"$/);
 	my $grep_opts = &get_concatenated_with_delimiter(&get_grep_opts_from_config, $grep_args, " ");
 	my ($paths, $grep_options) = &extract_paths_and_grep_options(\@ARGV, $grep_opts);# all next args should be paths of files/dirs to search in, and then grep options
@@ -391,6 +398,10 @@ sub read_user_arguments {
 		follow => $follow, print_command => $print_command, delimiter => $delimiter, paths => $paths, pattern => $pattern, 
 		greps_expressions => \@greps_expressions, greps_prunes => \@greps_prunes, pretty_print => $pretty_print, grep_options => $grep_options);
 	return \%command_specs;
+}
+
+sub contains_options_for_patterns {
+	return index($_[0], "-f") != -1  ||  index($_[0], "-e") != -1;
 }
 
 sub add_grep_posix_opts {
@@ -605,6 +616,10 @@ sub help_handler {
 	$help.=&get_padded_with_spaces("      --prune-[i]path=PATH",$num_of_chars)."paths of dirs seperated by commas to prune\n";
 	$help.=&get_padded_with_spaces("      --[no]follow-symlink",$num_of_chars)."follow symbolic links (enabled by default)\n";
 	$help.=&get_padded_with_spaces("  -r, -R, --[no]recursive",$num_of_chars)."recursively search in listed directories (enabled by default)\n";
+	$help.="\nPOSIX grep options:\n";
+	$help.=&get_padded_with_spaces("  -E, -F, -c, -e PATTREN, ",$num_of_chars)."\n";
+	$help.=&get_padded_with_spaces("  -f FILE, -i, -l, -n, -q,",$num_of_chars)."\n";
+	$help.=&get_padded_with_spaces("  -s, -v, -x",$num_of_chars)."these grep options are recognized by ".&PROG_NAME." and passed to the underlying grep; consult `man grep` to learn what each option does\n";
 	$help.="\nLanguages subsets:\n";
 	my %languages = ExpressionsFactory::instance->get_languages;
 	if (!%languages) {
