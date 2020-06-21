@@ -322,6 +322,7 @@ my $grep_args = "";
 my $abs_path = 0;
 my @greps_expressions = ();
 my @greps_prunes = ();
+my $recursive = 1;
 
 my %command_specs = %{&read_user_arguments};
 my $out = "";
@@ -343,20 +344,21 @@ print_debug (__LINE__, "xargs_exit_status=$xargs_exit_status");
 
 sub create_command {
 	my %command_specs = %{$_[0]};
-	my ($max_files_per_grep, $max_grep_procs, $recursive, $follow);
+	my ($max_files_per_grep, $max_grep_procs, $maxdepth, $follow);
 	my $paths = $command_specs{paths};
 	my $pattern = "'".$command_specs{pattern}."'";
 	$max_files_per_grep = &xargs_handler("max-files-per-grep", $command_specs{max_files_per_grep});
 	$max_grep_procs = &xargs_handler("max-grep-procs", $command_specs{max_grep_procs});
-	$recursive = "-maxdepth 1" if (! $command_specs{recursive});
-	$follow = "-L" if ($command_specs{follow});
+	$maxdepth = "-maxdepth 1" if ($command_specs{recursive} == 0);
+	$follow = "-H";
+	$follow = "-L" if ($command_specs{recursive} == 2);
 	my $expressions_str = &get_find_expressions_string($command_specs{greps_expressions}, $command_specs{delimiter});
 	my $prunes_str = &get_find_prunes_string($command_specs{greps_prunes}, $command_specs{delimiter});
 	my $prunes_expressions_str = &get_concatenated_with_delimiter($prunes_str, "-type f -a", $expressions_str, " ");
 	$prunes_expressions_str = "\\\( $prunes_expressions_str \\\)" if ($expressions_str && $prunes_str);
 	$prunes_expressions_str .= " -a" if ($expressions_str);
 	my $grep_options = $command_specs{grep_options};
-	my $cmd = &get_concatenated_with_delimiter("find", $follow, $paths, $recursive, $prunes_expressions_str, 
+	my $cmd = &get_concatenated_with_delimiter("find", $follow, $paths, $maxdepth, $prunes_expressions_str, 
 		"\\\! -empty -a -print0 2>/dev/null | xargs -0", $max_files_per_grep, $max_grep_procs, "grep", $grep_options, " ");
 	if (! &contains_options_for_patterns($grep_args)) {
 		$cmd = &get_concatenated_with_delimiter($cmd, $pattern, " ");
@@ -368,10 +370,11 @@ sub read_user_arguments {
 	&usage if (scalar(@ARGV) == 0);
 	&parentheses_to_options(\@ARGV);
 	&fix_petties(\@ARGV);
-	my ($max_files_per_grep, $max_grep_procs, $recursive, $follow, $print_command, $pretty_print, $delimiter) = 
-	   (          "DEFAULT",       "DEFAULT",          1,       1,              0,                     0,        ',');
-	my %hash_options = ('max-files-per-grep=i'=>\$max_files_per_grep, 'max-grep-procs=i'=>\$max_grep_procs, 'recursive|r|R!'=>\$recursive, 
-		'follow-symlink|S!'=>\$follow, 'print|p!'=>\$print_command, 'delimiter=s'=>\$delimiter, 'debug|g!'=>\$debug, 'help|?' => \&help_handler,
+	my ($max_files_per_grep, $max_grep_procs, $print_command, $pretty_print, $delimiter) = 
+	   (          "DEFAULT",       "DEFAULT",              0,             0,        ',');
+	my %hash_options = ('max-files-per-grep=i'=>\$max_files_per_grep, 'max-grep-procs=i'=>\$max_grep_procs, 
+		'recursive|r!'=>\&recursive_handler, 'dereference-recursive|R!'=>\&recursive_handler, 
+		'print!'=>\$print_command, 'delimiter=s'=>\$delimiter, 'debug!'=>\$debug, 'help|?' => \&help_handler,
 		'abs-path!'=>\$abs_path, 'ignore-me'=> 0, 'version|V' => \&version_handler, 'pretty-print' => \$pretty_print);
 	&add_expression_opts(\%hash_options);
 	&add_grep_posix_opts(\%hash_options);
@@ -395,7 +398,7 @@ sub read_user_arguments {
 	my ($paths, $grep_options) = &extract_paths_and_grep_options(\@ARGV, $grep_opts);# all next args should be paths of files/dirs to search in, and then grep options
         print_debug (__LINE__, "paths=$paths; grep_options=$grep_options");
 	my %command_specs = (max_files_per_grep => $max_files_per_grep, max_grep_procs => $max_grep_procs, recursive => $recursive, 
-		follow => $follow, print_command => $print_command, delimiter => $delimiter, paths => $paths, pattern => $pattern, 
+		print_command => $print_command, delimiter => $delimiter, paths => $paths, pattern => $pattern, 
 		greps_expressions => \@greps_expressions, greps_prunes => \@greps_prunes, pretty_print => $pretty_print, grep_options => $grep_options);
 	return \%command_specs;
 }
@@ -543,7 +546,20 @@ sub greps_bracket_expression_handler {
 }
 
 sub version_handler {
-    (print "greps ".&VERSION." \n\n") && exit 0;
+	(print "greps ".&VERSION." \n\n") && exit 0;
+}
+
+sub recursive_handler {
+	my ($key,$value)=@_;
+	if ($key eq "r"  ||  $key eq "recursive") {
+		$recursive = 1;
+	}
+	elsif ($key eq "R"  ||  $key eq "dereference-recursive") {
+		$recursive = 2;
+	}
+	else {
+		$recursive = 0;
+	}
 }
 
 sub xargs_handler {
@@ -598,11 +614,11 @@ sub grep_bool_opts_handler {
 }
 
 sub help_handler {
-	my $num_of_chars=32;
+	my $num_of_chars=36;
 	my $help=USAGE_MSG."\n";
 	$help.="Search for PATTERN in FILE.\n";
 	$help.="PATTERN is, by default, a basic regular expression (BRE).\n";
-	$help.="Example: greps -rX h,c 'hello world' -- -i -- color\n";
+	$help.="Example: greps -inX h,c 'hello world' ../ -- --color\n";
 	$help.="\nMiscellaneous:\n";
 	$help.=&get_padded_with_spaces("  -V  --version",$num_of_chars)."print version information and exit\n";
 	$help.=&get_padded_with_spaces("      --help",$num_of_chars)."display this help and exit\n";
@@ -614,8 +630,8 @@ sub help_handler {
 	$help.=&get_padded_with_spaces("      --or",$num_of_chars)."the expression on left is or'd with the expression on right\n";
 	$help.=&get_padded_with_spaces("      --prune-[i]name=NAME",$num_of_chars)."names of dirs seperated by commas to prune\n";
 	$help.=&get_padded_with_spaces("      --prune-[i]path=PATH",$num_of_chars)."paths of dirs seperated by commas to prune\n";
-	$help.=&get_padded_with_spaces("      --[no]follow-symlink",$num_of_chars)."follow symbolic links (enabled by default)\n";
-	$help.=&get_padded_with_spaces("  -r, -R, --[no]recursive",$num_of_chars)."recursively search in listed directories (enabled by default)\n";
+	$help.=&get_padded_with_spaces("  -r, --[no-]recursive",$num_of_chars)."recursively search in listed directories (enabled by default)\n";
+	$help.=&get_padded_with_spaces("  -R, --[no-]dereference-recursive",$num_of_chars)."likewise, but also follow symbolic links\n";
 	$help.="\nPOSIX grep options:\n";
 	$help.=&get_padded_with_spaces("  -E, -F, -c, -e PATTREN, ",$num_of_chars)."\n";
 	$help.=&get_padded_with_spaces("  -f FILE, -i, -l, -n, -q,",$num_of_chars)."\n";
@@ -632,9 +648,9 @@ sub help_handler {
 		}
 	}
 	$help.="\nOutput control:\n";
-	$help.=&get_padded_with_spaces("  -g  --debug",$num_of_chars)."execution with debug messages\n";
-	$help.=&get_padded_with_spaces("  -p  --print",$num_of_chars)."print the generated command and exit\n";
-	$help.=&get_padded_with_spaces("      --[no]abs-path",$num_of_chars)."files of results are showed always in absolute path\n";
+	$help.=&get_padded_with_spaces("      --debug",$num_of_chars)."execution with debug messages\n";
+	$help.=&get_padded_with_spaces("      --print",$num_of_chars)."print the generated command and exit\n";
+	$help.=&get_padded_with_spaces("      --[no-]abs-path",$num_of_chars)."files of results are showed always in absolute path\n";
 	$help.=&get_padded_with_spaces("      --pretty-print",$num_of_chars)."print the generated command with indentations and exit\n";
 	$help.="\nPerformance control:\n";
 	$help.=&get_padded_with_spaces("      --max-files-per-grep=MAX",$num_of_chars)."use at most MAX files for each grep instance\n";
