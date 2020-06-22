@@ -17,6 +17,7 @@ use strict;
 use warnings;
 use Cwd 'abs_path';
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);
+use Getopt::Long qw(GetOptionsFromString);
 use File::Basename;
 #use Devel::StackTrace;
 use constant { 
@@ -192,9 +193,10 @@ my $yaml_tiny_exists = eval {
 };
 
 sub new {
-	my ($class, $languages_ref, $grep_ref, $config_file_path) = @_;
+	my ($class, $languages_ref, $grep_ref, $config_file_path, $default_options) = @_;
 	my $hash_ref = &get_option_to_creator_hash_ref($languages_ref);
-	my $self = {_option_to_creator_hash_ref => $hash_ref, _delimiter => 0, _languages => $languages_ref, _grep_config => $grep_ref, _config_file_path =>$config_file_path};
+	my $self = {_option_to_creator_hash_ref => $hash_ref, _delimiter => 0, _languages => $languages_ref, 
+		_grep_config => $grep_ref, _config_file_path => $config_file_path, _default_options => $default_options};
 	return bless $self, $class;
 }
 
@@ -204,7 +206,8 @@ sub instance {
 		my %config =  %{&read_config($config_file_path)};
 		my %languages = %{$config{languages}};
 		my %grep = %{$config{grep}};
-		$_instance = ExpressionsFactory->new(\%languages, \%grep, $config_file_path);
+		my $default_options = $config{default_options};
+		$_instance = ExpressionsFactory->new(\%languages, \%grep, $config_file_path, $default_options);
 	}
 	return $_instance;
 }
@@ -215,6 +218,10 @@ sub get_config_file_path {
 
 sub get_languages {
 	return %{$_[0]->{_languages}};
+}
+
+sub get_default_options {
+	return $_[0]->{_default_options};
 }
 
 sub get_grep_config {
@@ -381,6 +388,7 @@ sub read_user_arguments {
 	# not used anymore - uses the -- separator instead to separate the grep options from the greps options, see extract_paths_and_grep_options
 	#&add_grep_opts(\%hash_options);
 	&set_feedback_handler;
+	GetOptionsFromString(ExpressionsFactory::instance->get_default_options, %hash_options);
 	GetOptions(%hash_options);
         print_debug (__LINE__, "ARGV AFTER GetOptions: @ARGV");
 	print_debug (__LINE__, "hash_options: ".&to_string_hash(\%hash_options));
