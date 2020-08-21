@@ -128,13 +128,13 @@ sub new {
 
 sub greps_to_find_expression {
 	my ($self) = @_;
-	my $shebang_prefix='^[#][!].*[[:space:]/]';
-	my $alternate='\\\\\|';
+	my $shebang_prefix='^#\!.*[[:space:]/]';
+	my $alternate='\\\|';
 	my $delimiter = $self->{_delimiter};
 	my @shebangs = split /$delimiter/, $self->{_shebangs};
 	my $shebangs_str = $shebang_prefix.main::get_concatenated_with_delimiter(\@shebangs, $alternate.$shebang_prefix);
-	my $grep = "grep -qE \"$shebangs_str\"";
-	my $expression_str = "\\\( -perm /u+x,g+x,o+x -a \\\( -exec sh -c \"head -1 {} | $grep \" \\; \\\) \\\)";
+	my $grep = "grep -qE $shebangs_str";
+	my $expression_str = "\\\(  \\\( -perm -u+x -o -perm -g+x -o -perm -o+x \\\)  -a \\\( -exec sh -c \"head -1 {} | $grep\" \\; \\\) \\\)";
 	return $expression_str;
 }
 
