@@ -21,7 +21,7 @@ use Getopt::Long qw(GetOptionsFromString);
 use File::Basename;
 #use Devel::StackTrace;
 use constant { 
-	VERSION => "0.83",
+	VERSION => "0.84",
 	PROG_NAME => scalar fileparse($0, qr/\.[^.]*/),
 	USAGE_MSG => "Usage: ".scalar fileparse($0, qr/\.[^.]*/)." [OPTION]... PATTERN [FILE]... [-- GREPOPTIONS...]",
 };
@@ -307,8 +307,6 @@ sub create_language_expression {
 	my @extensions = $language_config{extensions};
 	my @names = $language_config{names};
 	my @shebangs = $language_config{shebangs};
-	my $shebang_prefix='^[#][!].*[[:space:]/]';
-	my $alternate='\\\\\|';
 	return LanguageExpression->new($lang, $delimiter, 
 									main::get_concatenated_with_delimiter($names[0], $delimiter), 
 									main::get_concatenated_with_delimiter($extensions[0], $delimiter),
@@ -356,6 +354,7 @@ sub create_command {
 	my $pattern = "'".$command_specs{pattern}."'";
 	$max_files_per_grep = &xargs_handler("max-files-per-grep", $command_specs{max_files_per_grep});
 	$max_grep_procs = &xargs_handler("max-grep-procs", $command_specs{max_grep_procs});
+	$maxdepth="";
 	$maxdepth = "-maxdepth 1" if ($command_specs{recursive} == 0);
 	$follow = "-H";
 	$follow = "-L" if ($command_specs{recursive} == 2);
@@ -560,13 +559,15 @@ sub version_handler {
 sub recursive_handler {
 	my ($key,$value)=@_;
 	if ($key eq "r"  ||  $key eq "recursive") {
-		$recursive = 1;
+		$recursive = $value;
 	}
 	elsif ($key eq "R"  ||  $key eq "dereference-recursive") {
-		$recursive = 2;
-	}
-	else {
-		$recursive = 0;
+		if ($value == 1) {
+			$recursive = 2;
+		}
+		else {	
+			$recursive = 0;
+		}
 	}
 }
 
