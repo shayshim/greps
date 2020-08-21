@@ -1,10 +1,8 @@
-default_options: --prune-name .git,.idea
+default_options: #--prune-name .git,.idea
 languages:
   shell:
     extensions:
       - sh
-      - bash
-      - zsh
     shebangs:
       - sh
       - bash
@@ -18,13 +16,10 @@ languages:
     extensions: 
       - pl
       - PL
-      - pm
-      - plx
-      - perl
     shebangs: 
       - perl
   maven: 
     names:
       - pom.xml
 grep:
-  options: --color=auto -i
+  options: --color=auto
